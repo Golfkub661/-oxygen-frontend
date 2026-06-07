@@ -85,7 +85,7 @@ export default function HistoryPage() {
   const [selectedDate, setSelectedDate] = useState(null)
   const [isMounted, setIsMounted] = useState(false)
 
-  // ดึงวันที่มีข้อมูลทั้งหมดจาก API (รันรอบเดียวตอนเปิดหน้าเว็บ)
+  // ดึงวันที่มีข้อมูลทั้งหมดจาก API
   useEffect(() => {
     setIsMounted(true)
     const fetchDates = async () => {
@@ -93,7 +93,13 @@ export default function HistoryPage() {
         const res = await fetch(`${API_URL}/api/available-dates/`)
         if (!res.ok) return
         const json = await res.json()
-        setAvailableDates(json.dates ?? [])
+        const datesArr = json.dates ?? []
+        setAvailableDates(datesArr)
+        
+        // 🌟 เพิ่มจุดนี้: ถ้าเปิดหน้าจอมาครั้งแรก ให้หยิบวันที่ล่าสุดที่มีข้อมูลมาตั้งค่าไว้ก่อนเลย
+        if (datesArr.length > 0 && !selectedDate) {
+          setSelectedDate(datesArr[0])
+        }
       } catch (err) {
         console.error(err)
       }
@@ -101,7 +107,7 @@ export default function HistoryPage() {
     fetchDates()
   }, [])
 
-  // ⚡ ดึงข้อมูลจาก API ทันทีเมื่อค่า hours หรือ selectedDate ขยับ
+  // ดึงข้อมูลประวัติการบันทึกเมื่อมีการเปลี่ยน ชั่วโมง หรือ วันที่
   useEffect(() => {
     const fetchHistory = async () => {
       setLoading(true)
@@ -121,7 +127,7 @@ export default function HistoryPage() {
       }
     }
     fetchHistory()
-  }, [hours, selectedDate]) // คอยจับตาดูความเปลี่ยนแปลงของทั้งสองตัวแปร
+  }, [hours, selectedDate])
 
   const table = useReactTable({
     data,
@@ -192,7 +198,6 @@ export default function HistoryPage() {
               </span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  {/* 🎨 ปรับปรุงให้ปุ่มนี้เปลี่ยนเป็นสีเขียวด้วยเวลาที่มีการเลือกเพื่อความสอดคล้อง */}
                   <button className="flex items-center gap-2 px-4 py-2 bg-white text-sm font-semibold text-emerald-600 transition-colors hover:bg-gray-50">
                     {getHoursLabel(hours)}
                     <RiArrowDownSLine className="size-4 text-gray-500" />
