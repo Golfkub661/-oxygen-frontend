@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { RiArrowDownLine, RiArrowUpLine, RiArrowDownSLine, RiCalendar2Line, RiTimeLine } from '@remixicon/react'
+import { RiArrowDownLine, RiArrowUpLine, RiArrowDownSLine, RiCalendar2Line, RiTimeLine, RiDownloadLine } from '@remixicon/react'
 import {
   flexRender,
   getCoreRowModel,
@@ -121,6 +121,30 @@ export default function HistoryPage() {
     fetchHistory()
   }, [hours, selectedDate])
 
+  const handleExportCSV = () => {
+    if (data.length === 0) return
+    const headers = ['เวลา', 'O2 (%)', 'O2 (mg/L)', 'อุณหภูมิน้ำ (°C)', 'อุณหภูมิอากาศ (°C)', 'ความชื้น (%RH)']
+    const rows = data.map(row => [
+      row.timestamp,
+      row.o2_pct,
+      row.o2_mgl,
+      row.temp,
+      row.temp_air,
+      row.humidity,
+    ])
+    const csvContent = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const filename = selectedDate
+      ? `oxygen_${selectedDate.replace(/\//g, '-')}_${hours}h.csv`
+      : `oxygen_last_${hours}h.csv`
+    link.href = url
+    link.download = filename
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const table = useReactTable({
     data,
     columns,
@@ -208,6 +232,16 @@ export default function HistoryPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+
+            {/* ปุ่ม Export CSV */}
+            <button
+              onClick={handleExportCSV}
+              disabled={data.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-200 shadow-sm text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <RiDownloadLine className="size-4" />
+              Export
+            </button>
 
           </div>
         </div>
