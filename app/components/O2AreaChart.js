@@ -64,9 +64,8 @@ export default function O2AreaChart() {
   useEffect(() => {
     if (!selectedDate) return;
 
-    // ยุบ Logic การดึงข้อมูลเป็นฟังก์ชันแยก เพื่อเรียกซ้ำใน Interval ได้สะดวก
     const fetchData = (isSilent = false) => {
-      if (!isSilent) setLoading(true); // ถ้าอัปเดตแบบเรียลไทม์เบื้องหลัง ไม่ต้องขึ้น Loading กระพริบให้รำคาญตา
+      if (!isSilent) setLoading(true);
       
       const params = new URLSearchParams({ hours: selectedHours, date: selectedDate });
       fetch(`${API_BASE}/api/history/?${params}`)
@@ -80,12 +79,13 @@ export default function O2AreaChart() {
               if (!t) return null;
               if (seen.has(t)) return null;
               seen.add(t);
+              
               const mglRaw = item.o2_mgl ?? item.mgl ?? null;
               const mgl = mglRaw != null ? parseFloat(parseFloat(mglRaw).toFixed(2)) : null;
               return { time: t, mgl };
             })
-            .filter(Boolean);
-
+            .filter(Boolean)
+            .reverse(); // 🌟 แก้ไข: กลับลำดับข้อมูลจากเก่าไปใหม่เพื่อให้กราฟเรียงถูกต้อง
           setChartData(data);
         })
         .catch(() => setChartData([]))
@@ -94,17 +94,13 @@ export default function O2AreaChart() {
         });
     };
 
-    // สั่งให้รันดึงข้อมูลทันทีครั้งแรกที่เปลี่ยนเงื่อนไข
     fetchData(false);
 
-    // 📌 จุดสำคัญ: ตั้งเวลาให้ Fetch ซ้ำอัตโนมัติทุกๆ 1 นาที (60000 มิลลิวินาที)
     const intervalId = setInterval(() => {
-      fetchData(true); // ส่ง true เพื่อให้อัปเดตข้อมูลเงียบๆ กราฟจะเปลี่ยนรูปทรงแบบสมูท
+      fetchData(true);
     }, 60000);
 
-    // 📌 จุดสำคัญ: ฟังก์ชันล้างระบบเคลียร์หน่วยความจำเมื่อ Component ดับลงหรือเปลี่ยนวัน/ชั่วโมง
     return () => clearInterval(intervalId);
-
   }, [selectedDate, selectedHours]);
 
   const handleMouseMove = useCallback((state) => {
@@ -119,15 +115,17 @@ export default function O2AreaChart() {
     setHoverData(null);
   }, []);
 
-  const activePoint    = hoverData ?? chartData[0];
+  // ปรับการดึงข้อมูลจุดล่าสุด: หลังจาก .reverse() แล้ว ข้อมูลล่าสุดจะย้ายไปอยู่ตัวสุดท้ายของ Array (chartData.length - 1)
+  const activePoint    = hoverData ?? chartData[chartData.length - 1];
   const currentValue   = activePoint?.mgl;
   const currentTime    = activePoint?.time ?? '--';
-
   const currentIndex   = chartData.findIndex((e) => e.time === currentTime);
-  const prevValue      = currentIndex < chartData.length - 1 ? chartData[currentIndex + 1]?.mgl : undefined;
+  
+  // ปรับการหาค่าก่อนหน้า (prevValue) ให้สัมพันธ์กับลำดับใหม่ (ย้อนไป 1 index ก่อนหน้า)
+  const prevValue      = currentIndex > 0 ? chartData[currentIndex - 1]?.mgl : undefined;
+  
   const percentageChange = prevValue != null ? ((currentValue - prevValue) / prevValue) * 100 : NaN;
   const absoluteChange   = prevValue != null ? currentValue - prevValue : NaN;
-
   const displayValue   = currentValue != null ? mglFormatter(currentValue) : '--';
   const changeStatus   = formatChange(percentageChange, absoluteChange);
 
@@ -214,17 +212,15 @@ export default function O2AreaChart() {
               
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#cbd5e1" />
               
-              <XAxis 
-                dataKey="time" 
-                reversed={true}
-                axisLine={false} 
+              <XAxis
+                dataKey="time"
+                axisLine={false} // 🌟 แก้ไข: นำ reversed={true} ออกตามที่แจ้งแล้วครับ
                 tickLine={false}
                 tick={{ fill: '#334155', fontSize: 12, fontWeight: 600 }}
                 dy={10}
-                ticks={[chartData[chartData.length - 1]?.time, chartData[0]?.time].filter(Boolean)}
+                ticks={[chartData[0]?.time, chartData[chartData.length - 1]?.time].filter(Boolean)}
               />
-
-              <YAxis 
+              <YAxis
                 type="number"
                 domain={[0, 20]}
                 ticks={[0, 4, 8, 12, 16, 20]}
@@ -235,14 +231,12 @@ export default function O2AreaChart() {
                 tick={{ fill: '#475569', fontSize: 12, fontWeight: 600 }}
                 dx={-5}
               />
-
               <Tooltip content={() => null} />
-
               <Area
                 type="monotone"
                 dataKey="mgl"
                 stroke="#10b981"
-                strokeWidth={2.5} 
+                strokeWidth={2.5}
                 fillOpacity={1}
                 fill="url(#colorO2)"
                 activeDot={{ r: 5, strokeWidth: 0, fill: '#10b981' }}
@@ -255,7 +249,6 @@ export default function O2AreaChart() {
           </div>
         )}
       </div>
-
     </div>
   );
 }
