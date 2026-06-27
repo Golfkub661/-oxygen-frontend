@@ -49,7 +49,7 @@
 }
 
 body {
-  background: #f3f4f6; /* ปรับเป็นสีเทาอ่อน เพื่อแก้ปัญหาขอบดำและให้กลืนกับแผงคอนเทนเนอร์หลัก */
+  background: #f3f4f6;
   min-height: 100vh;
   width: 100%;
 }
@@ -133,4 +133,11 @@ body {
   html {
     @apply font-sans;
   }
+}
+
+/* ── Fix Leaflet z-index ไม่ทับ Sidebar ── */
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 10 !important;
 }

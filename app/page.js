@@ -3,12 +3,24 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import dynamic from 'next/dynamic'
+
+const MapComponent = dynamic(() => import('./components/MapInner'), { ssr: false })
 
 const API_URL = 'https://oxygen-dashboard-6wgh.onrender.com'
 
 const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
 const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 function pad(n) { return String(n).padStart(2, '0') }
+
+// ── Mock GPS (ลบทิ้งเมื่อ Raspberry Pi พร้อม) ──
+const MOCK_CURRENT = { lat: 13.7563, lng: 100.5018, o2: 85, mgl: 7.2 }
+const MOCK_HISTORY = [
+  { lat: 13.7550, lng: 100.5000, o2: 45, mgl: 3.8 },
+  { lat: 13.7555, lng: 100.5008, o2: 65, mgl: 5.5 },
+  { lat: 13.7558, lng: 100.5012, o2: 72, mgl: 6.1 },
+  { lat: 13.7563, lng: 100.5018, o2: 85, mgl: 7.2 },
+]
 
 export default function Dashboard() {
   const [data, setData] = useState(null)
@@ -186,6 +198,41 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* ── แผนที่ GPS ── */}
+        <Card className="bg-white rounded-2xl shadow-sm p-4 sm:p-5">
+          <CardContent className="p-0 flex flex-col gap-3">
+            {/* Header */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-sm font-extrabold text-gray-700 uppercase tracking-wide">
+                🗺️ แผนที่เส้นทาง & ค่า O₂
+              </span>
+              <div className="flex items-center gap-3 text-xs font-bold text-gray-500">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span> ≥80%
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-400"></span> ≥50%
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500"></span> &lt;50%
+                </span>
+                <span className="flex items-center gap-1 text-sky-400">
+                  <span className="inline-block w-4 border-t-2 border-dashed border-sky-400"></span> เส้นทาง
+                </span>
+              </div>
+            </div>
+
+            {/* แผนที่ */}
+            <div className="rounded-xl overflow-hidden border border-gray-100" style={{ height: '400px' }}>
+              <MapComponent
+                currentPoint={MOCK_CURRENT}
+                trackHistory={MOCK_HISTORY}
+              />
+            </div>
+
+          </CardContent>
+        </Card>
 
       </div>
     </div>
