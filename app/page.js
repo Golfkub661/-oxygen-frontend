@@ -199,7 +199,7 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* ── แผนที่ GPS ── */}
+        {/* ── 📌 ส่วนที่แก้ไข: แผนที่ GPS (ขยายขนาดขึ้น 5%) ── */}
         <Card className="bg-white rounded-2xl shadow-sm p-4 sm:p-5">
           <CardContent className="p-0 flex flex-col gap-3">
             {/* Header */}
@@ -223,8 +223,8 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* แผนที่ */}
-            <div className="rounded-xl overflow-hidden border border-gray-100" style={{ height: '400px' }}>
+            {/* แผนที่ (แก้ไขสไตล์ขยาย height จาก 400px เป็น 440px) */}
+            <div className="rounded-xl overflow-hidden border border-gray-100" style={{ height: '440px' }}>
               <MapComponent
                 currentPoint={MOCK_CURRENT}
                 trackHistory={MOCK_HISTORY}
