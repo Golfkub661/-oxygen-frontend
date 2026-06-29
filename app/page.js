@@ -13,7 +13,6 @@ const days = ['อาทิตย์', 'จันทร์', 'อังคาร
 const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 function pad(n) { return String(n).padStart(2, '0') }
 
-// ── Mock GPS (ลบทิ้งเมื่อ Raspberry Pi พร้อม) ──
 const MOCK_CURRENT = { lat: 13.7563, lng: 100.5018, o2: 85, mgl: 7.2 }
 const MOCK_HISTORY = [
   { lat: 13.7550, lng: 100.5000, o2: 45, mgl: 3.8 },
@@ -21,6 +20,43 @@ const MOCK_HISTORY = [
   { lat: 13.7558, lng: 100.5012, o2: 72, mgl: 6.1 },
   { lat: 13.7563, lng: 100.5018, o2: 85, mgl: 7.2 },
 ]
+
+// วงกลม Progress สำหรับการ์ดพลังงาน
+function CircleGauge({ value, max, color, textColor, size = 56 }) {
+  const r = (size / 2) - 5
+  const circumference = 2 * Math.PI * r
+  const pct = Math.min(Math.max(value / max, 0), 1)
+  const offset = circumference * (1 - pct)
+  const cx = size / 2
+  const cy = size / 2
+  // แสดงตัวเลขย่อถ้ายาวเกิน
+  const display = value >= 1000 ? value.toFixed(0) : value % 1 === 0 ? value : parseFloat(value).toFixed(1)
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth="5" />
+      <circle
+        cx={cx} cy={cy} r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="5"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${cx} ${cy})`}
+      />
+      <text
+        x={cx} y={cy + 4}
+        textAnchor="middle"
+        fontSize={display.toString().length > 4 ? 8 : 10}
+        fontWeight="700"
+        fill={textColor}
+      >
+        {display}
+      </text>
+    </svg>
+  )
+}
 
 export default function Dashboard() {
   const [data, setData] = useState(null)
@@ -68,14 +104,21 @@ export default function Dashboard() {
     })
   }
 
+  // ค่า mock PZEM-017 (ลบทิ้งเมื่ออุปกรณ์มาถึง)
+  const pzem = {
+    voltage: data?.voltage ?? 24.0,
+    current: data?.current ?? 30.0,
+    power:   data?.power   ?? 500,
+    energy:  data?.energy  ?? 1.28,
+  }
+
   if (!isMounted) return <div className="min-h-screen bg-gray-100" />
 
   return (
     <div className="flex flex-col gap-4 bg-gray-100 min-h-screen p-3 sm:p-6 w-full">
-
       <div className="w-full sm:w-3/5 flex flex-col gap-4">
 
-        {/* แถวบน: การ์ดมอนิเตอร์ */}
+        {/* ── แถวบน: มอนิเตอร์เซนเซอร์ ── */}
         <div className="flex flex-col sm:grid sm:gap-4" style={{ gridTemplateColumns: '1.8fr 1fr 1.5fr' }}>
 
           {/* การ์ด 1 — วัน/เวลา + อากาศ */}
@@ -109,7 +152,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* การ์ด 2+3 */}
+          {/* การ์ด 2+3 — น้ำ/O2% */}
           <div className="flex flex-row sm:flex-col gap-3 mb-3 sm:mb-0">
             <div className="bg-blue-50/80 border border-blue-100 rounded-2xl p-4 flex flex-col justify-center flex-1">
               <p className="text-xs sm:text-sm font-bold text-blue-700/90 uppercase tracking-wide">อุณหภูมิน้ำ</p>
@@ -140,7 +183,74 @@ export default function Dashboard() {
 
         </div>
 
-        {/* แถวล่าง — Relay + บันทึก */}
+        {/* ── การ์ดพลังงาน PZEM-017 (ปรับปรุงความชัดเจนแล้ว) ── */}
+        <Card className="bg-white rounded-2xl shadow-sm p-4 sm:p-5 border border-slate-100">
+          <CardContent className="p-0 flex flex-col gap-4">
+
+            {/* Header */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">⚡ ระบบไฟฟ้า DC (PZEM-017)</span>
+              <span className="ml-auto text-xs font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                Online
+              </span>
+            </div>
+
+            {/* 4 การ์ดย่อย */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+              {/* แรงดัน */}
+              <div className="flex items-center gap-3 border border-slate-200/80 bg-slate-50/50 shadow-sm rounded-xl p-3">
+                <CircleGauge value={pzem.voltage} max={30} color="#378ADD" textColor="#185FA5" />
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">แรงดัน</span>
+                  <span className="text-xl sm:text-2xl font-black text-[#185FA5] leading-tight tracking-tight">
+                    {pzem.voltage.toFixed(1)} <span className="text-xs sm:text-sm font-bold text-[#378ADD]">V</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 mt-0.5">0–30 V</span>
+                </div>
+              </div>
+
+              {/* กระแส */}
+              <div className="flex items-center gap-3 border border-slate-200/80 bg-slate-50/50 shadow-sm rounded-xl p-3">
+                <CircleGauge value={pzem.current} max={100} color="#1D9E75" textColor="#0F6E56" />
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">กระแส</span>
+                  <span className="text-xl sm:text-2xl font-black text-[#0F6E56] leading-tight tracking-tight">
+                    {pzem.current.toFixed(1)} <span className="text-xs sm:text-sm font-bold text-[#1D9E75]">A</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 mt-0.5">0–100 A</span>
+                </div>
+              </div>
+
+              {/* กำลังไฟ */}
+              <div className="flex items-center gap-3 border border-slate-200/80 bg-slate-50/50 shadow-sm rounded-xl p-3">
+                <CircleGauge value={pzem.power} max={1000} color="#EF9F27" textColor="#854F0B" />
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">กำลังไฟ</span>
+                  <span className="text-xl sm:text-2xl font-black text-[#854F0B] leading-tight tracking-tight">
+                    {pzem.power.toFixed(0)} <span className="text-xs sm:text-sm font-bold text-[#EF9F27]">W</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 mt-0.5">0–1000 W</span>
+                </div>
+              </div>
+
+              {/* พลังงานสะสม */}
+              <div className="flex items-center gap-3 border border-slate-200/80 bg-slate-50/50 shadow-sm rounded-xl p-3">
+                <CircleGauge value={pzem.energy} max={10} color="#10B981" textColor="#047857" size={56} />
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">พลังงานสะสม</span>
+                  <span className="text-xl sm:text-2xl font-black text-[#047857] leading-tight tracking-tight">
+                    {pzem.energy.toFixed(2)} <span className="text-xs sm:text-sm font-bold text-[#10B981]">kWh</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 mt-0.5">ตั้งแต่เปิดเครื่อง</span>
+                </div>
+              </div>
+
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Relay + บันทึก ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           {[1, 2, 3].map((num) => {
             const state = data?.[`relay${num}`] ?? false
@@ -155,22 +265,17 @@ export default function Dashboard() {
                     <button
                       onClick={() => toggleRelay(num, false)}
                       className="py-2.5 rounded-xl text-sm font-extrabold text-white bg-emerald-400 hover:bg-emerald-500 active:scale-95 transition-all shadow-sm"
-                    >
-                      เปิด
-                    </button>
+                    >เปิด</button>
                     <button
                       onClick={() => toggleRelay(num, true)}
                       className="py-2.5 rounded-xl text-sm font-extrabold text-white bg-red-400 hover:bg-red-500 active:scale-95 transition-all shadow-sm"
-                    >
-                      ปิด
-                    </button>
+                    >ปิด</button>
                   </div>
                 </CardContent>
               </Card>
             )
           })}
 
-          {/* การ์ดบันทึก */}
           <Card className={cn('rounded-2xl shadow-sm p-4 transition-colors', recording ? 'bg-green-50/50 border-green-200' : 'bg-white')}>
             <CardContent className="p-0 flex flex-col gap-3">
               <div className="flex items-center gap-2 pb-1.5 border-b border-gray-50">
@@ -184,25 +289,20 @@ export default function Dashboard() {
                   onClick={toggleRecording}
                   disabled={recording}
                   className="py-2.5 rounded-xl text-sm font-extrabold text-white bg-emerald-400 hover:bg-emerald-500 disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition-all shadow-sm"
-                >
-                  เริ่ม
-                </button>
+                >เริ่ม</button>
                 <button
                   onClick={toggleRecording}
                   disabled={!recording}
                   className="py-2.5 rounded-xl text-sm font-extrabold text-white bg-red-400 hover:bg-red-500 disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition-all shadow-sm"
-                >
-                  หยุด
-                </button>
+                >หยุด</button>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* ── 📌 ส่วนที่แก้ไข: แผนที่ GPS (ขยายขนาดขึ้น 5%) ── */}
+        {/* ── แผนที่ GPS ── */}
         <Card className="bg-white rounded-2xl shadow-sm p-4 sm:p-5">
           <CardContent className="p-0 flex flex-col gap-3">
-            {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="text-sm font-extrabold text-gray-700 uppercase tracking-wide">
                 🗺️ แผนที่เส้นทาง & ค่า O₂
@@ -222,15 +322,12 @@ export default function Dashboard() {
                 </span>
               </div>
             </div>
-
-            {/* แผนที่ (แก้ไขสไตล์ขยาย height จาก 400px เป็น 440px) */}
             <div className="rounded-xl overflow-hidden border border-gray-100" style={{ height: '440px' }}>
               <MapComponent
                 currentPoint={MOCK_CURRENT}
                 trackHistory={MOCK_HISTORY}
               />
             </div>
-
           </CardContent>
         </Card>
 

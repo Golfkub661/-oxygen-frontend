@@ -13,11 +13,18 @@ function getColor(o2) {
 }
 
 const TILE_STREET = () => L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors', maxZoom: 19,
+  attribution: '© OpenStreetMap contributors', 
+  maxNativeZoom: 19,  // tile จริงมีถึง 19
+  maxZoom: 19,
 })
+
 const TILE_SATELLITE = () => L.tileLayer(
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  { attribution: '© Esri', maxZoom: 19 }
+  { 
+    attribution: '© Esri',
+    maxNativeZoom: 18,  // tile จริงมีถึง 18 (stretch แทนที่จะหาย)
+    maxZoom: 20,        // UI ซูมได้ถึง 20
+  }
 )
 
 export default function MapInner({ currentPoint, trackHistory }) {
@@ -29,53 +36,64 @@ export default function MapInner({ currentPoint, trackHistory }) {
   const heatLayerRef = useRef(null)
   const tileLayerRef = useRef(null)
 
-  // ── ⚙️ ปรับเปลี่ยน State ให้เป็นอิสระต่อกัน (เปิดเริ่มต้นพร้อมกันทั้งคู่) ──
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeLayer, setActiveLayer] = useState('street')
-  const [showMarkers, setShowMarkers] = useState(true)  // เปิดเส้นทางพิกัดเริ่มต้น
-  const [showHeatmap, setShowHeatmap] = useState(true)  // เปิด Heatmap ควบคู่เริ่มต้น
+  const [showMarkers, setShowMarkers] = useState(true)
+  const [showHeatmap, setShowHeatmap] = useState(true)
 
-  // 1. ขึ้นโครงแผนที่ครั้งแรก
+  // 1. Init map
   useEffect(() => {
     if (mapInstanceRef.current) return
-    mapInstanceRef.current = L.map(mapRef.current).setView([13.7563, 100.5018], 15)
+    mapInstanceRef.current = L.map(mapRef.current, {
+      maxZoom: 20
+    }).setView([13.7563, 100.5018], 15)
+    
     tileLayerRef.current = TILE_STREET()
     tileLayerRef.current.addTo(mapInstanceRef.current)
   }, [])
 
-  // 2. สลับ Tile Layer แผนที่พื้นหลัง
+  // 2. สลับ Tile + ปรับ maxZoom ตาม provider + clamp zoom ถ้าเกิน
   useEffect(() => {
     if (!mapInstanceRef.current || !tileLayerRef.current) return
+
     mapInstanceRef.current.removeLayer(tileLayerRef.current)
-    tileLayerRef.current = activeLayer === 'street' ? TILE_STREET() : TILE_SATELLITE()
+
+    if (activeLayer === 'street') {
+      tileLayerRef.current = TILE_STREET()
+      mapInstanceRef.current.setMaxZoom(19)
+      // ถ้าตอนนี้ zoom เกิน 19 ให้ดึงกลับมา
+      if (mapInstanceRef.current.getZoom() > 19) {
+        mapInstanceRef.current.setZoom(19)
+      }
+    } else {
+      tileLayerRef.current = TILE_SATELLITE()
+      mapInstanceRef.current.setMaxZoom(20)
+    }
+
     tileLayerRef.current.addTo(mapInstanceRef.current)
   }, [activeLayer])
 
-  // 3. จัดการวาดและเคลียร์เลเยอร์ตามการเปิด-ปิดสวิตช์
+  // 3. วาด/เคลียร์ Layer
   useEffect(() => {
     if (!mapInstanceRef.current) return
 
-    // ล้างค่าข้อมูลเก่าทั้งหมดก่อนวาดเฟรมใหม่
     if (markerRef.current) { markerRef.current.remove(); markerRef.current = null }
     if (polylineRef.current) { polylineRef.current.remove(); polylineRef.current = null }
     historyMarkersRef.current.forEach(m => m.remove())
     historyMarkersRef.current = []
     if (heatLayerRef.current) { mapInstanceRef.current.removeLayer(heatLayerRef.current); heatLayerRef.current = null }
 
-    // 🔥 [ส่วนที่ 1]: ทำงานถ้าผู้ใช้เปิดโหมด Heatmap
+    // 🔥 Heatmap
     if (showHeatmap) {
-      // ใช้ลอจิก Dynamic Import สำหรับ Leaflet Heatmap เหมือนเดิม
       import('leaflet.heat').then(() => {
         const allPoints = [...(trackHistory ?? [])]
         if (currentPoint) allPoints.push(currentPoint)
         
         if (allPoints.length > 0) {
           const heatData = allPoints.map(p => [
-            p.lat,
-            p.lng,
+            p.lat, p.lng,
             1 - (Math.min(Math.max(p.o2, 0), 100) / 100)
           ])
-
           heatLayerRef.current = L.heatLayer(heatData, {
             radius: 40, blur: 30, maxZoom: 17, max: 1,
             gradient: {
@@ -86,40 +104,35 @@ export default function MapInner({ currentPoint, trackHistory }) {
       })
     }
 
-    // 📍 [ส่วนที่ 2]: ทำงานถ้าผู้ใช้เปิดโหมด จุด/เส้นทาง (จะวาดทับซ้อนขึ้นมาด้านบนเลเยอร์ความร้อน)
-    if (showMarkers) {
-      // วาดเส้นประเชื่อมต่อเส้นทาง
-      if (trackHistory?.length) {
-        const latlngs = trackHistory.map(p => [p.lat, p.lng])
-        polylineRef.current = L.polyline(latlngs, {
-          color: '#38bdf8', weight: 3, opacity: 0.8, dashArray: '6 4',
-        }).addTo(mapInstanceRef.current)
+    // 📍 Markers + Polyline
+    if (showMarkers && trackHistory?.length) {
+      const latlngs = trackHistory.map(p => [p.lat, p.lng])
+      polylineRef.current = L.polyline(latlngs, {
+        color: '#38bdf8', weight: 3, opacity: 0.8, dashArray: '6 4',
+      }).addTo(mapInstanceRef.current)
 
-        // วาดจุดสถานีรายทาง
-        trackHistory.forEach(p => {
-          const m = L.circleMarker([p.lat, p.lng], {
-            radius: 6, fillColor: getColor(p.o2),
-            color: '#fff', weight: 1.5, fillOpacity: 0.85,
-          })
-            .bindPopup(`O₂: ${p.o2}% | ${p.mgl} mg/L`)
-            .addTo(mapInstanceRef.current)
-          historyMarkersRef.current.push(m)
+      trackHistory.forEach(p => {
+        const m = L.circleMarker([p.lat, p.lng], {
+          radius: 6, fillColor: getColor(p.o2),
+          color: '#fff', weight: 1.5, fillOpacity: 0.85,
         })
-      }
+          .bindPopup(`O₂: ${p.o2}% | ${p.mgl} mg/L`)
+          .addTo(mapInstanceRef.current)
+        historyMarkersRef.current.push(m)
+      })
     }
 
-    // 🟢 [ส่วนที่ 3]: วาดพินตำแหน่งปัจจุบันเสมอ (แต่ปรับขนาดตามบริบทเพื่อความสวยงาม)
+    // 🟢 จุดปัจจุบัน
     if (currentPoint) {
       const { lat, lng, o2, mgl } = currentPoint
       markerRef.current = L.circleMarker([lat, lng], {
-        radius: showMarkers ? 13 : 9, // หดเล็กลงหน่อยถ้าเปิดแค่ Heatmap เพื่อไม่ให้บดบังพื้นที่สี
+        radius: showMarkers ? 13 : 9,
+        fillOpacity: 0.95,
         fillColor: getColor(o2),
-        color: '#fff', weight: 2.5, fillOpacity: 0.95,
+        color: '#fff', weight: 2.5,
       })
         .bindPopup(`<b>ตำแหน่งปัจจุบัน</b><br/>O₂: <b>${o2}%</b> | <b>${mgl} mg/L</b>`)
         .addTo(mapInstanceRef.current)
-      
-      // ให้เลื่อนจอกลางไปหาจุดล่าสุดเฉพาะตอนเปิดแผนที่หรือสลับโหมด
       mapInstanceRef.current.panTo([lat, lng])
     }
 
@@ -128,7 +141,6 @@ export default function MapInner({ currentPoint, trackHistory }) {
   return (
     <div className="relative w-full h-full min-h-[420px] rounded-xl overflow-hidden">
       
-      {/* ปุ่มกดลอยเรียก Sidebar */}
       <button 
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="absolute top-3 right-3 bg-white hover:bg-slate-50 text-slate-700 shadow-md border border-slate-200/80 p-2.5 rounded-xl flex items-center justify-center transition-all hover:scale-105"
@@ -137,7 +149,6 @@ export default function MapInner({ currentPoint, trackHistory }) {
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* ส่งสเตทแบบแยกชิ้นลงไปผูกกับ Sidebar */}
       <MapSidebar 
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
@@ -149,7 +160,6 @@ export default function MapInner({ currentPoint, trackHistory }) {
         setShowHeatmap={setShowHeatmap}
       />
 
-      {/* คำอธิบายสัญลักษณ์ความหมายสี (Legend) จะขึ้นเมื่อเปิดใช้งาน Heatmap */}
       {showHeatmap && (
         <div 
           className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-lg text-xs font-bold flex flex-col gap-1.5 border border-slate-100"
