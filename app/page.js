@@ -117,17 +117,17 @@ export default function Dashboard() {
   }
 
   const pzem = {
-    voltage: data?.voltage ?? 24.0,
-    current: data?.current ?? 30.0,
-    power:   data?.power   ?? 500,
-    energy:  data?.energy  ?? 1.28,
+    voltage: data?.pzem_voltage ?? 0,
+    current: data?.pzem_current ?? 0,
+    power:   data?.pzem_power   ?? 0,
+    energy:  data?.pzem_energy  ?? 0,
   }
 
   // ค่า RPM มอเตอร์สำหรับการ์ดใหม่ด้านขวา
   const rpm = {
-    motor_left:  data?.rpm_left  ?? 650,
-    motor_right: data?.rpm_right ?? 648,
-    motor_drive: data?.rpm_drive ?? 1210,
+    motor_left:  data?.rpm1 ?? 0,
+    motor_right: data?.rpm2 ?? 0,
+    motor_drive: data?.rpm3 ?? 0,
   }
 
   if (!isMounted) return <div className="min-h-screen bg-gray-100" />
