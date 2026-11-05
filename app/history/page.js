@@ -393,7 +393,7 @@ export default function HistoryPage() {
                       <DropdownMenuItem
                         onClick={() => setSelectedDate(null)}
                       >
-                        ยกเลิกการเลือกวันที่
+                        ทั้งหมด
                       </DropdownMenuItem>
 
                       {availableDates.map((date) => (
