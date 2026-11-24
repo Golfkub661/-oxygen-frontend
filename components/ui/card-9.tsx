@@ -18,12 +18,12 @@ const cardVariants = {
     scale: 1.03,
     transition: { type: "spring", stiffness: 300, damping: 20 },
   },
-};
+} as const;
 
 const arrowVariants = {
   initial: { x: 0 },
   hover: { x: 4, transition: { type: "spring", stiffness: 400, damping: 15 } },
-};
+} as const;
 
 const ChallengeCard = React.forwardRef<HTMLDivElement, ChallengeCardProps>(
   ({ title, description, buttonText, className, backgroundColor = "bg-green-500", onClick }, ref) => {
