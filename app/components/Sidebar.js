@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { Home, BarChart2, ClipboardList, Table } from 'lucide-react'
+import { Home, BarChart2, ClipboardList, Table, Gauge } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -11,10 +11,11 @@ import {
 import NavMain from './NavMain'
 
 const menus = [
-  { id: 'home',    href: '/',        label: 'หน้าแรก',          icon: <Home className="size-4" /> },
-  { id: 'graph',   href: '/graph',   label: 'กราฟแสดงผล',       icon: <BarChart2 className="size-4" /> },
-  { id: 'history', href: '/history', label: 'ประวัติการบันทึก',  icon: <ClipboardList className="size-4" /> },
-  { id: 'table',   href: '/table',   label: 'Table Mode',        icon: <Table className="size-4" /> },
+  { id: 'home',      href: '/',          label: 'หน้าแรก',          icon: <Home className="size-4" /> },
+  { id: 'graph',     href: '/graph',     label: 'กราฟแสดงผล',       icon: <BarChart2 className="size-4" /> },
+  { id: 'history',   href: '/history',   label: 'ประวัติการบันทึก',  icon: <ClipboardList className="size-4" /> },
+  { id: 'table',     href: '/table',     label: 'Table Mode',        icon: <Table className="size-4" /> },
+  { id: 'calibrate', href: '/calibrate', label: 'สอบเทียบเซนเซอร์', icon: <Gauge className="size-4" /> },
 ]
 
 export default function DashboardSidebar() {
